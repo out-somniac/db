@@ -151,3 +151,147 @@ CREATE TABLE Tables
     CONSTRAINT ValidMaxNumberOfGuests CHECK (MaxNumberOfGuests > 0),
     CONSTRAINT Tables_pk PRIMARY KEY  (TableID)
 );
+
+--- Reservations Area
+-- Table: Client
+CREATE TABLE Client
+(
+    ClientID int NOT NULL,
+    Address nvarchar NOT NULL,
+    Phone nvarchar NOT NULL,
+    Email nvarchar NOT NULL,
+    CONSTRAINT ValidPhone CHECK (Phone LIKE '+[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'),
+    CONSTRAINT UniquePhone UNIQUE (Phone),
+    CONSTRAINT ValidEmail CHECK (Email LIKE '%@%'),
+    CONSTRAINT UniqueEmail UNIQUE (Email),
+    CONSTRAINT Client_pk PRIMARY KEY (ClientID)
+);
+
+-- Table: Companies
+CREATE TABLE Companies
+(
+    CompanyID int NOT NULL,
+    ClientID int NOT NULL,
+    CompanyName nvarchar NOT NULL,
+    NIP nvarchar NOT NULL,
+    CONSTRAINT ValidNIP CHECK (NIP LIKE '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'),
+    CONSTRAINT UniqueNIP UNIQUE (NIP),
+    CONSTRAINT Companies_pk PRIMARY KEY  (CompanyID)
+);
+
+ALTER TABLE Companies ADD CONSTRAINT Client_Companies
+FOREIGN KEY (ClientID)
+REFERENCES Client (ClientID);
+
+-- Table: CompanyReservations
+CREATE TABLE CompanyReservations
+(
+    ReservationID int NOT NULL,
+    NumberOfGuests int NOT NULL,
+    CONSTRAINT ValidNumberOfGuests CHECK (NumberOfGuests >= 2),
+    CONSTRAINT CompanyReservations_pk PRIMARY KEY  (ReservationID)
+);
+
+ALTER TABLE CompanyReservations ADD CONSTRAINT Reservations_CompanyReservations
+FOREIGN KEY (ReservationID)
+REFERENCES Reservations (ReservationID);
+
+-- Table: CompanyReservationsDetails
+CREATE TABLE CompanyReservationsDetails
+(
+    IndividualID int NOT NULL,
+    ReservationID int NOT NULL,
+    CONSTRAINT CompanyReservationsDetails_pk PRIMARY KEY  (ReservationID, IndividualID)
+);
+
+ALTER TABLE CompanyReservationsDetails ADD CONSTRAINT CompanyReservationsDetails_Individuals
+FOREIGN KEY (IndividualID)
+REFERENCES Individuals (IndividualID);
+
+ALTER TABLE CompanyReservationsDetails ADD CONSTRAINT ReservationCompanyDetails_ReservationCompany
+FOREIGN KEY (ReservationID)
+REFERENCES CompanyReservations (ReservationID);
+
+-- Table: IndividualReservations
+CREATE TABLE IndividualReservations
+(
+    ReservationID int NOT NULL,
+    Prepaid bit NOT NULL,
+    CONSTRAINT IndividualReservations_pk PRIMARY KEY  (ReservationID)
+);
+
+ALTER TABLE IndividualReservations ADD CONSTRAINT Reservations_Orders
+FOREIGN KEY (ReservationID)
+REFERENCES Orders (OrderID);
+
+ALTER TABLE IndividualReservations ADD CONSTRAINT Reservations_IndividualReservations
+FOREIGN KEY (ReservationID)
+REFERENCES Reservations (ReservationID);
+
+-- Table: Individuals
+CREATE TABLE Individuals
+(
+    IndividualID int NOT NULL,
+    ClientID int NOT NULL,
+    FirstName nvarchar NOT NULL,
+    LastName nvarchar NOT NULL,
+    CONSTRAINT Individuals_pk PRIMARY KEY  (IndividualID)
+);
+
+ALTER TABLE Individuals ADD CONSTRAINT Client_Individuals
+FOREIGN KEY (ClientID)
+REFERENCES Client (ClientID);
+
+-- Table: Reservations
+CREATE TABLE Reservations
+(
+    ReservationID int NOT NULL,
+    ClientID int NOT NULL,
+    ReservationDate datetime NOT NULL DEFAULT GETDATE(),
+    StartDate datetime NOT NULL,
+    EndDate datetime NOT NULL,
+    Accepted bit NOT NULL DEFAULT 0,
+    CONSTRAINT ValidDate CHECK (ReservationDate < StartDate AND StartDate < EndDate),
+    CONSTRAINT Reservations_pk PRIMARY KEY  (ReservationID)
+);
+
+ALTER TABLE Reservations ADD CONSTRAINT Reservations_Client
+FOREIGN KEY (ClientID)
+REFERENCES Client (ClientID);
+
+-- Table: Discounts
+CREATE TABLE Discounts
+(
+    IndividualID int NOT NULL,
+    StartDate datetime NOT NULL DEFAULT GETDATE(),
+    EndDate datetime NOT NULL,
+    Value int NOT NULL,
+    CONSTRAINT ValidDate CHECK (EndDate > StartDate),
+    CONSTRAINT ValidValue CHECK (Value > 0 AND Value <= 100),
+    CONSTRAINT Discounts_pk PRIMARY KEY  (IndividualID)
+);
+ALTER TABLE Discounts ADD CONSTRAINT Discounts_Individuals
+FOREIGN KEY (IndividualID)
+REFERENCES Individuals (IndividualID);
+
+-- Table: DiscountParameters
+CREATE TABLE DiscountParameters
+(
+    ParameterID int NOT NULL,
+    ParameterName varchar(2) NOT NULL,
+    StartDate datetime NOT NULL DEFAULT GETDATE(),
+    EndDate datetime NULL DEFAULT NULL,
+    Value int NOT NULL,
+    CONSTRAINT ValidDate CHECK (EndDate > StartDate),
+    CONSTRAINT ValidValue CHECK (Value > 0),
+    CONSTRAINT DiscountParameters_pk PRIMARY KEY  (ParameterID)
+);
+
+-- Table: Parameters
+CREATE TABLE Parameters
+(
+    ParameterID varchar(2) NOT NULL,
+    Value int NOT NULL ,
+    CONSTRAINT ValidValue CHECK (Value >= 0),
+    CONSTRAINT Parameters_pk PRIMARY KEY  (ParameterID)
+);
