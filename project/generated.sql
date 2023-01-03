@@ -24,6 +24,7 @@ CREATE TABLE Client
     CONSTRAINT ValidPhone CHECK (Phone LIKE '+[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'),
     CONSTRAINT UniquePhone UNIQUE (Phone),
     CONSTRAINT ValidEmail CHECK (Email LIKE '%@%'),
+    CONSTRAINT UniqueEmail UNIQUE (Email)
     CONSTRAINT Client_pk PRIMARY KEY
     (ClientID)
 );
