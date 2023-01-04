@@ -454,4 +454,3 @@ BEGIN
         THROW 52000, @errorMsg, 1
     END CATCH
 END
-go
