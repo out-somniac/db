@@ -2,13 +2,13 @@
 --- PRODUCTS AREA
 -- AddCategory 
 CREATE PROCEDURE AddCategory
-    @CategoryName varchar(255)
+    @CategoryName nvarchar(255)
 AS
 BEGIN
     SET NOCOUNT ON
     BEGIN TRY 
     IF EXISTS(SELECT *
-    FROM Category
+    FROM Categories
     WHERE @CategoryName = CategoryName)
     BEGIN;
         THROW 52000, N'Category already in database', 1
@@ -16,15 +16,15 @@ BEGIN
     
     DECLARE @CategoryID INT
     SELECT @CategoryID = ISNULL(MAX(CategoryID), 0) + 1
-    FROM Category
+    FROM Categories
     
-    INSERT INTO Category
+    INSERT INTO Categories
         (CategoryID, CategoryName)
     VALUES
         (@CategoryID, @CategoryName);
 END TRY
 BEGIN CATCH
-    DECLARE @msg nvarchar(1024) = N'An error occured while adding a category: ' + ERROR_MESSAGE();
+    DECLARE @msg nvarchar(1024) = N'An error occurred while adding a category: ' + ERROR_MESSAGE();
     THROW 52000, @msg, 1;
 END CATCH
 END
@@ -52,7 +52,7 @@ BEGIN
 
     IF NOT EXISTS(
     SELECT *
-    FROM Category
+    FROM Categories
     WHERE CategoryName = @CategoryName
     )
     BEGIN;
@@ -61,7 +61,7 @@ BEGIN
 
     DECLARE @CategoryID INT
     SELECT @CategoryID = CategoryID
-    FROM Category
+    FROM Categories
     WHERE CategoryName = @CategoryName
 
     DECLARE @ProductID INT
@@ -75,7 +75,7 @@ BEGIN
 
 END TRY
 BEGIN CATCH
-    DECLARE @msg nvarchar(1024) = N'An error occured while adding a product: ' + ERROR_MESSAGE();
+    DECLARE @msg nvarchar(1024) = N'An error occurred while adding a product: ' + ERROR_MESSAGE();
     THROW 52000, @msg, 1;
 END CATCH
 END
@@ -110,7 +110,7 @@ BEGIN
         (@MenuID, @ProductID, @StartDate, @EndDate)
     END TRY
     BEGIN CATCH
-        DECLARE @msg nvarchar(1024) = N'An error occured while adding a product to the menu: ' + ERROR_MESSAGE();
+        DECLARE @msg nvarchar(1024) = N'An error occurred while adding a product to the menu: ' + ERROR_MESSAGE();
         THROW 52000, @msg, 1;
     END CATCH
 END
@@ -171,14 +171,14 @@ BEGIN
     END TRY
     BEGIN CATCH
         DECLARE @msg nvarchar(1024)
-        =N'An error occured while adding an individual client: ' + ERROR_MESSAGE();
+        =N'An error occurred while adding an individual client: ' + ERROR_MESSAGE();
         THROW 52000, @msg, 1;
     END CATCH
 END
 GO
 
 -- AddCompany
-CREATE PROCEDURE AddIndividual
+CREATE PROCEDURE AddCompany
     @CompanyName nvarchar(255),
     @NIP nvarchar(255),
     @Address nvarchar(255),
@@ -230,7 +230,7 @@ BEGIN
 
     DECLARE @CompanyID INT
     SELECT @CompanyID = ISNULL(MAX(CompanyID), 0) + 1
-    FROM Compnanies
+    FROM Companies
 
     INSERT INTO Client
         (ClientID, Address, Phone, Email)
@@ -245,7 +245,7 @@ BEGIN
     END TRY
     BEGIN CATCH
         DECLARE @msg nvarchar(1024)
-        =N'An error occured while adding a company: ' + ERROR_MESSAGE();
+        =N'An error occurred while adding a company: ' + ERROR_MESSAGE();
         THROW 52000, @msg, 1;
     END CATCH
 END
@@ -305,7 +305,7 @@ GO
 -- 
 --     END TRY
 --     BEGIN CATCH
---         DECLARE @errorMsg nvarchar(1024) = N'An error occured when adding an individual reservation: ' + ERROR_MESSAGE();
+--         DECLARE @errorMsg nvarchar(1024) = N'An error occurred when adding an individual reservation: ' + ERROR_MESSAGE();
 --         THROW 52000, @errorMsg, 1
 --     END CATCH
 -- END
@@ -356,7 +356,7 @@ BEGIN
         (@ReservationID, @NumberOfGuests)
     END TRY
     BEGIN CATCH
-        DECLARE @errorMsg nvarchar(1024) = N'An error occured when adding an anonymous company reservation: ' + ERROR_MESSAGE();
+        DECLARE @errorMsg nvarchar(1024) = N'An error occurred when adding an anonymous company reservation: ' + ERROR_MESSAGE();
         THROW 52000, @errorMsg, 1
     END CATCH
 END
@@ -386,12 +386,12 @@ BEGIN
     END
 
     IF EXISTS(SELECT *
-    FROM CompanyReservationDetails
+    FROM CompanyReservationsDetails
     WHERE ReservationID = @ReservationID AND IndividualID = @IndividualID) BEGIN;
         THROW 52000, N'This person was already added to this reservation', 1
     END
 
-    INSERT INTO CompanyReservationDetails
+    INSERT INTO CompanyReservationsDetails
         (IndividualID, ReservationID)
     VALUES
         (@IndividualID, @ReservationID)
@@ -403,7 +403,7 @@ BEGIN
     -- Should this throw an error when the number of guestr exceeds currently planed number of tables?
     END TRY
     BEGIN CATCH
-        DECLARE @errorMsg nvarchar(1024) = N'An error occured when adding a client to a company reservation: ' + ERROR_MESSAGE();
+        DECLARE @errorMsg nvarchar(1024) = N'An error occurred when adding a client to a company reservation: ' + ERROR_MESSAGE();
         THROW 52000, @errorMsg, 1
     END CATCH
 END
@@ -432,7 +432,7 @@ BEGIN
     END TRY
     BEGIN CATCH
         DECLARE @msg nvarchar(1024)
-        =N'An error occured while adding an employee: ' + ERROR_MESSAGE();
+        =N'An error occurred while adding an employee: ' + ERROR_MESSAGE();
         THROW 52000, @msg, 1;
     END CATCH
 END
@@ -475,7 +475,7 @@ BEGIN
     END TRY
     BEGIN CATCH
         DECLARE @msg nvarchar(1024)
-        =N'An error occured while making employee a manager: ' + ERROR_MESSAGE();
+        =N'An error occurred while making employee a manager: ' + ERROR_MESSAGE();
         THROW 52000, @msg, 1;
     END CATCH
 END
@@ -488,26 +488,26 @@ AS
 BEGIN
     SET NOCOUNT ON
     BEGIN TRY
-    
+
     IF NOT EXISTS (SELECT *
     FROM Employees
     WHERE EmployeeID = @EmployeeID)
     BEGIN;
-        THROW 52000, N'Employe with given EmployeeID number is not registered in the database', 1
+        THROW 52000, N'Employee with given EmployeeID number is not registered in the database', 1
     END
 
     IF EXISTS (SELECT *
-    FROM Manager
+    FROM Managers
     WHERE EmployeeID = @EmployeeID)
     BEGIN;
-        THROW 52000, N'Employe with given EmployeeID is already a manager', 1
+        THROW 52000, N'Employee with given EmployeeID is already a manager', 1
     END
 
     IF EXISTS (SELECT *
     FROM Administrators
     WHERE EmployeeID = @EmployeeID)
     BEGIN;
-        THROW 52000, N'Employe with given EmployeeID is already an administrator', 1
+        THROW 52000, N'Employee with given EmployeeID is already an administrator', 1
     END
 
     INSERT INTO Administrators
@@ -518,7 +518,7 @@ BEGIN
     END TRY
     BEGIN CATCH
         DECLARE @msg nvarchar(1024)
-        =N'An error occured while making employee an administrator: ' + ERROR_MESSAGE();
+        =N'An error occurred while making employee an administrator: ' + ERROR_MESSAGE();
         THROW 52000, @msg, 1;
     END CATCH
 END
@@ -553,7 +553,7 @@ BEGIN
 
     END TRY
     BEGIN CATCH
-        DECLARE @errorMsg nvarchar(1024) = N'An error occured when adding a table: ' + ERROR_MESSAGE();
+        DECLARE @errorMsg nvarchar(1024) = N'An error occurred when adding a table: ' + ERROR_MESSAGE();
         THROW 52000, @errorMsg, 1
     END CATCH
 END
@@ -593,7 +593,7 @@ BEGIN
         (@TableID, @NumberOfGuests, @ReservationID)
 END TRY
 BEGIN CATCH
-    DECLARE @msg nvarchar(1024) = N'An error occured while adding a table to a reservation: ' + ERROR_MESSAGE();
+    DECLARE @msg nvarchar(1024) = N'An error occurred while adding a table to a reservation: ' + ERROR_MESSAGE();
     THROW 52000, @msg, 1
 END CATCH
 END
@@ -624,7 +624,7 @@ BEGIN
         (@OrderID, @EmployeeID, @OrderDate, @ServingDate, @ClientID)
 END TRY
 BEGIN CATCH
-    DECLARE @msg nvarchar(1024) = N'An error occured while adding an order: ' + ERROR_MESSAGE();
+    DECLARE @msg nvarchar(1024) = N'An error occurred while adding an order: ' + ERROR_MESSAGE();
     THROW 52000, @msg, 1
 END CATCH
 END
@@ -671,7 +671,7 @@ BEGIN
     
 END TRY
 BEGIN CATCH
-    DECLARE @msg nvarchar(1024) = N'An error occured while adding a table to a reservation: ' + ERROR_MESSAGE();
+    DECLARE @msg nvarchar(1024) = N'An error occurred while adding a table to a reservation: ' + ERROR_MESSAGE();
     THROW 52000, @msg, 1
 END CATCH
 END
@@ -700,15 +700,16 @@ BEGIN
     INSERT INTO Takeaway
         (OrderID, PreferredDate)
     VALUES
-        (@OrderID, @ProferredDate)
+        (@OrderID, @PreferredDate)
 
     END TRY
     BEGIN CATCH
-        DECLARE @msg nvarchar(1024) = N'An error occured while making an order a takeaway order: ' + ERROR_MESSAGE();
+        DECLARE @msg nvarchar(1024) = N'An error occurred while making an order a takeaway order: ' + ERROR_MESSAGE();
         THROW 52000, @msg, 1
         END CATCH
 END
 GO
+
 
 --- PARAMETERS AREA
 -- ChangeParameter
@@ -728,14 +729,14 @@ BEGIN
 
 END TRY
 BEGIN CATCH
-    DECLARE @msg nvarchar(1024) = N'An error occured while changing a value of a parameter: ' + ERROR_MESSAGE();
+    DECLARE @msg nvarchar(1024) = N'An error occurred while changing a value of a parameter: ' + ERROR_MESSAGE();
     THROW 52000, @msg, 1
 END CATCH
 END
 GO
 
 -- ChangeDiscoundParameters
-CREATE PROCEDURE ChangeDiscoundParameters
+CREATE PROCEDURE ChangeDiscountParameters
     @ParameterName varchar(2),
     @Value int,
     @StartDate datetime,
@@ -743,14 +744,14 @@ CREATE PROCEDURE ChangeDiscoundParameters
 AS
 BEGIN
     BEGIN TRY
-    
+
     IF NOT EXISTS (SELECT *
     FROM DiscountParameters
     WHERE ParameterName = @ParameterName) BEGIN;
         THROW 52000, N'An parameter with given name is not registered in the database', 1
     END
 
-    UPDATE Parameters SET EndDate = GETDATE() WHERE ParameterName = @ParameterName AND EndDate IS NULL
+    UPDATE DiscountParameters SET EndDate = GETDATE() WHERE ParameterName = @ParameterName AND EndDate IS NULL
 
     DECLARE @ParameterID INT
     SELECT @ParameterID = ISNULL(MAX(ParameterID), 0) + 1
@@ -759,12 +760,12 @@ BEGIN
     INSERT INTO DiscountParameters
         (ParameterID, ParameterName, StartDate, EndDate, Value)
     VALUES
-        (@ParameterID, @ParameterName, @StartDate, @EndDate, Value)
+        (@ParameterID, @ParameterName, @StartDate, @EndDate, @Value)
 
     END TRY
 
     BEGIN CATCH
-        DECLARE @msg nvarchar(1024) = N'An error occured while changing a value of a  discount parameter: ' + ERROR_MESSAGE();
+        DECLARE @msg nvarchar(1024) = N'An error occurred while changing a value of a  discount parameter: ' + ERROR_MESSAGE();
         THROW 52000, @msg, 1
     END CATCH
 END
