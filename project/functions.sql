@@ -2,7 +2,7 @@ CREATE FUNCTION CanOrderSeafood(@OrderDate DATETIME, @ServingDate DATETIME)
 RETURNS BIT
 AS
 BEGIN
-    IF @OrderDate <= GetPreviousMonday(@ServingDate)
+    IF @OrderDate <= dbo.GetPreviousMonday(@ServingDate)
         RETURN 1
 
     RETURN 0
@@ -68,3 +68,15 @@ BEGIN
     RETURN 0
 END
 GO
+
+CREATE FUNCTION GetCurrentDiscount(@IndividualID INT, @Date DATETIME)
+RETURNS INT
+AS
+BEGIN
+    DECLARE @result INT
+    SET @result = (SELECT D.Value
+    FROM Individuals AS I
+        INNER JOIN Discounts D on I.IndividualID = D.IndividualID
+    WHERE I.IndividualID = @IndividualID AND @Date BETWEEN D.StartDate AND D.EndDate)
+    RETURN @result
+END

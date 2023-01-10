@@ -1,23 +1,23 @@
 
 --- PRODUCTS AREA
--- AddCategory 
+-- AddCategory
 CREATE PROCEDURE AddCategory
     @CategoryName nvarchar(255)
 AS
 BEGIN
     SET NOCOUNT ON
-    BEGIN TRY 
+    BEGIN TRY
     IF EXISTS(SELECT *
     FROM Categories
     WHERE @CategoryName = CategoryName)
     BEGIN;
         THROW 52000, N'Category already in database', 1
     END
-    
+
     DECLARE @CategoryID INT
     SELECT @CategoryID = ISNULL(MAX(CategoryID), 0) + 1
     FROM Categories
-    
+
     INSERT INTO Categories
         (CategoryID, CategoryName)
     VALUES
@@ -94,7 +94,7 @@ BEGIN
     WHERE Name = @ProductName) BEGIN;
         THROW 52000, N'Could not a product with such a name', 1
     END
-    
+
     DECLARE @ProductID INT
     SELECT @ProductID = ProductID
     FROM Products
@@ -133,7 +133,7 @@ AS
 BEGIN
     SET NOCOUNT ON
     BEGIN TRY
-    
+
     IF EXISTS (SELECT *
     FROM Client
     WHERE Address = @Address)
@@ -193,7 +193,7 @@ AS
 BEGIN
     SET NOCOUNT ON
     BEGIN TRY
-    
+
     IF EXISTS (SELECT *
     FROM Companies
     WHERE CompanyName = @CompanyName)
@@ -280,18 +280,18 @@ BEGIN
         THROW 52000,'Individual is not registered in database', 1
     END
 
-    IF dbo.CanMakeReservation(@IndividualID, @ProductIDs) BEGIN;
+    IF dbo.CanMakeReservation(@IndividualID, @ProductIDs) = 1 BEGIN
         THROW 52000,'This individual has not yet made enough orders to make a reservation', 1
     END
 
-        IF dbo.HasSeafood(@ProductIDs) BEGIN
+        IF dbo.HasSeafood(@ProductIDs) = 1 BEGIN
         IF @ServingDate IS NULL BEGIN;
             THROW 52000, 'Cannot order seafood without specifying when it will be served', 1
         END
         IF (SELECT DATEPART(WEEKDAY, @ServingDate) - 1) BETWEEN 4 AND 6 BEGIN;
             THROW 52000, 'Trying to order seafood for days other than Thursday, Friday, Saturday', 1
         END
-        IF dbo.CanOrderSeafood(@OrderDate, @ServingDate) BEGIN;
+        IF dbo.CanOrderSeafood(@OrderDate, @ServingDate) = 1 BEGIN;
             THROW 52000, 'Must order seafood before tuesday preceding serving date', 1
         END
     END
@@ -324,9 +324,11 @@ BEGIN
     VALUES
         (@OrderID, @EmployeeID, @OrderDate, @ServingDate, @ClientID)
 
+    DECLARE @Discount AS DECIMAL(10, 2) = (100 - dbo.GetCurrentDiscount(@IndividualID, @OrderDate)) / 100
         INSERT INTO OrderDetails
         (OrderID, ProductID, UnitPrice)
-    SELECT @OrderID, list.ProductID, (SELECT UnitPrice
+
+    SELECT @OrderID, list.ProductID, (SELECT UnitPrice * @Discount
         FROM Products AS P
         WHERE list.ProductID = P.ProductID)
     FROM @ProductIDs as list
@@ -346,7 +348,7 @@ CREATE PROCEDURE AddNamedCompanyReservation
     @ReservationDate datetime,
     @StartDate datetime,
     @EndDate datetime,
-    @IndividualsIDs IndividualsList = NULL READONLY
+    @IndividualsIDs IndividualsList READONLY
 AS
 BEGIN
     SET NOCOUNT ON
@@ -405,7 +407,7 @@ GO
 
 
 -- AddAnonymousCompanyReservation
-CREATE PROCEDURE AddNamedCompanyReservation
+CREATE PROCEDURE AddAnonymousCompanyReservation
     @CompanyID int,
     @ReservationDate datetime,
     @StartDate datetime,
@@ -454,14 +456,14 @@ GO
 -- AcceptReservation
 CREATE PROCEDURE AcceptReservation
     @ReservationID INT,
-    @TableIDs TablesList
+    @TableIDs TablesList READONLY
 AS
 BEGIN
     SET NOCOUNT ON
 
     DECLARE @TableID INT = 0
     DECLARE @NumberOfGuests INT = 0
-    WHILE (1 = 1) 
+    WHILE (1 = 1)
     BEGIN
         SELECT TOP 1
             @TableID = TableID,
@@ -475,7 +477,7 @@ BEGIN
         EXEC dbo.AddTableToReservation @ReservationID, @NumberOfGuests, @TableID
     END
 
-    UPDATE Reservations 
+    UPDATE Reservations
     SET Accepted = 1
     WHERE ReservationID = @ReservationID
 END
@@ -490,12 +492,12 @@ CREATE PROCEDURE AddEmployee
 AS
 BEGIN
     SET NOCOUNT ON
-    BEGIN TRY 
+    BEGIN TRY
 
     DECLARE @EmployeeID INT
     SELECT @EmployeeID = ISNULL(MAX(EmployeeID), 0) + 1
     FROM Employees
-    
+
     INSERT INTO Employees
         (EmployeeID, FirstName, SureName, BirthDate)
     VALUES
@@ -517,26 +519,26 @@ AS
 BEGIN
     SET NOCOUNT ON
     BEGIN TRY
-    
+
     IF NOT EXISTS (SELECT *
     FROM Employees
     WHERE EmployeeID = @EmployeeID)
     BEGIN;
-        THROW 52000, N'Employe with given EmployeeID number is not registered in the database', 1
+        THROW 52000, N'Employee with given EmployeeID number is not registered in the database', 1
     END
 
     IF EXISTS (SELECT *
     FROM Administrators
     WHERE EmployeeID = @EmployeeID)
     BEGIN;
-        THROW 52000, N'Employe with given EmployeeID is already an administrator', 1
+        THROW 52000, N'Employee with given EmployeeID is already an administrator', 1
     END
 
     IF EXISTS (SELECT *
     FROM Managers
     WHERE EmployeeID = @EmployeeID)
     BEGIN;
-        THROW 52000, N'Employe with given EmployeeID is already a manager', 1
+        THROW 52000, N'Employee with given EmployeeID is already a manager', 1
     END
 
     INSERT INTO Managers
@@ -697,21 +699,21 @@ CREATE PROCEDURE AddOrder
     @ProductIDs ProductList READONLY
 AS
 BEGIN
-    BEGIN TRY 
+    BEGIN TRY
     IF NOT EXISTS (SELECT *
     FROM Employees
     WHERE EmployeeID = @EmployeeID) BEGIN;
         THROW 52000, 'Employee with given ID was not registered in the database', 1
     END
 
-    IF dbo.HasSeafood(@ProductIDs) BEGIN
+    IF dbo.HasSeafood(@ProductIDs) = 1 BEGIN
         IF @ServingDate IS NULL BEGIN;
             THROW 52000, 'Cannot order seafood without specifying when it will be served', 1
         END
         IF (SELECT DATEPART(WEEKDAY, @ServingDate) - 1) BETWEEN 4 AND 6 BEGIN;
             THROW 52000, 'Trying to order seafood for days other than Thursday, Friday, Saturday', 1
         END
-        IF dbo.CanOrderSeafood(@OrderDate, @ServingDate) BEGIN
+        IF dbo.CanOrderSeafood(@OrderDate, @ServingDate) = 1 BEGIN
         THROW 52000, 'Must order seafood before tuesday preceding serving date', 1
     END
     END
@@ -800,7 +802,7 @@ END CATCH
 END
 GO
 
--- ChangeDiscoundParameters
+-- ChangeDiscountParameters
 CREATE PROCEDURE ChangeDiscountParameters
     @ParameterName varchar(2),
     @Value int,
