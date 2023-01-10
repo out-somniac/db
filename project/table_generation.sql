@@ -28,7 +28,7 @@ CREATE TABLE Menu
 (
     MenuID int NOT NULL,
     ProductID int NOT NULL,
-    StartDate date NOT NULL DEFAULT GETDATE(),
+    StartDate date NOT NULL,
     EndDate date NOT NULL,
     CONSTRAINT Menu_pk PRIMARY KEY  (MenuID)
 );
@@ -95,7 +95,7 @@ REFERENCES Employees (EmployeeID);
 -- Table: OrderDetails
 CREATE TABLE OrderDetails
 (
-    OrderDetailsID int NOT NULL,
+    OrderDetailsID int NOT NULL IDENTITY(1, 1),
     OrderID int NOT NULL,
     ProductID int NOT NULL,
     UnitPrice money NOT NULL,
@@ -187,8 +187,6 @@ REFERENCES Client (ClientID);
 CREATE TABLE CompanyReservations
 (
     ReservationID int NOT NULL,
-    NumberOfGuests int NOT NULL,
-    CONSTRAINT ValidNumberOfGuests CHECK (NumberOfGuests >= 2),
     CONSTRAINT CompanyReservations_pk PRIMARY KEY  (ReservationID)
 );
 
@@ -216,13 +214,15 @@ REFERENCES CompanyReservations (ReservationID);
 CREATE TABLE IndividualReservations
 (
     ReservationID int NOT NULL,
+    OrderID int NOT NULL,
     Prepaid bit NOT NULL,
     CONSTRAINT IndividualReservations_pk PRIMARY KEY  (ReservationID)
 );
 
-ALTER TABLE IndividualReservations ADD CONSTRAINT Reservations_Orders
-FOREIGN KEY (ReservationID)
+ALTER TABLE IndividualReservations ADD CONSTRAINT IndividualReservations_Orders
+FOREIGN KEY (OrderID)
 REFERENCES Orders (OrderID);
+
 
 ALTER TABLE IndividualReservations ADD CONSTRAINT Reservations_IndividualReservations
 FOREIGN KEY (ReservationID)
@@ -251,6 +251,8 @@ CREATE TABLE Reservations
     StartDate datetime NOT NULL,
     EndDate datetime NOT NULL,
     Accepted bit NOT NULL DEFAULT 0,
+    NumberOfGuests int NOT NULL,
+    CONSTRAINT ValidNumberOfGuests CHECK (NumberOfGuests >= 2),
     CONSTRAINT ValidDate CHECK (ReservationDate < StartDate AND StartDate < EndDate),
     CONSTRAINT Reservations_pk PRIMARY KEY  (ReservationID)
 );
