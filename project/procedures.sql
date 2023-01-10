@@ -257,13 +257,11 @@ END
 GO
 
 
-
 -- AddIndividualReservation
 CREATE PROCEDURE AddIndividualReservation
     @IndividualID int,
     @StartDate datetime,
     @EndDate datetime,
-    @Accepted bit,
     @Prepaid bit,
     @EmployeeID int,
     @OrderDate datetime,
@@ -282,52 +280,58 @@ BEGIN
         THROW 52000,'Individual is not registered in database', 1
     END
 
-    if NOT ((SELECT DATEPART(WEEKDAY, GETDATE()) - 1) BETWEEN 4 AND 6) AND EXISTS (
-    SELECT *
-        FROM @list as L
-            INNER JOIN Products AS P ON L.ProductID = P.ProductID
-            INNER JOIN Categories C on P.CategoryID = C.CategoryID
-        WHERE C.CategoryName LIKE 'Owoce morza') BEGIN;
-        THROW 52000, 'Trying to order seafood outside of specified days', 1
+    IF dbo.CanMakeReservation(@IndividualID, @ProductIDs) BEGIN;
+        THROW 52000,'This individual has not yet made enough orders to make a reservation', 1
     END
 
+        IF dbo.HasSeafood(@ProductIDs) BEGIN
+        IF @ServingDate IS NULL BEGIN;
+            THROW 52000, 'Cannot order seafood without specifying when it will be served', 1
+        END
+        IF (SELECT DATEPART(WEEKDAY, @ServingDate) - 1) BETWEEN 4 AND 6 BEGIN;
+            THROW 52000, 'Trying to order seafood for days other than Thursday, Friday, Saturday', 1
+        END
+        IF dbo.CanOrderSeafood(@OrderDate, @ServingDate) BEGIN;
+            THROW 52000, 'Must order seafood before tuesday preceding serving date', 1
+        END
+    END
 
-    DECLARE @ClientID INT
-    SELECT @ClientID = ClientID
+        DECLARE @ClientID INT
+        SELECT @ClientID = ClientID
     FROM Individuals
     WHERE IndividualID = @IndividualID
 
-    DECLARE @OrderID INT
-    SELECT @OrderID = ISNULL(MAX(OrderID), 0) + 1
+        DECLARE @OrderID INT
+        SELECT @OrderID = ISNULL(MAX(OrderID), 0) + 1
     FROM Orders
 
-    DECLARE @ReservationID INT
-    SELECT @ReservationID = ISNULL(MAX(ReservationID), 0) + 1
+        DECLARE @ReservationID INT
+        SELECT @ReservationID = ISNULL(MAX(ReservationID), 0) + 1
     FROM Reservations
 
-    INSERT INTO Reservations
+        INSERT INTO Reservations
         (ReservationID, ClientID, StartDate, EndDate, Accepted, NumberOfGuests)
     VALUES
-        (@ReservationID, @ClientID, @StartDate, @EndDate, @Accepted, @NumberOfGuests)
+        (@ReservationID, @ClientID, @StartDate, @EndDate, 0, @NumberOfGuests)
 
-    INSERT INTO IndividualReservations
+        INSERT INTO IndividualReservations
         (ReservationID, OrderID, Prepaid)
     VALUES
         (@ReservationID, @OrderID, @Prepaid)
 
-    INSERT INTO Orders
+        INSERT INTO Orders
         (OrderID, EmployeeID, OrderDate, ServingDate, ClientID)
     VALUES
         (@OrderID, @EmployeeID, @OrderDate, @ServingDate, @ClientID)
 
-    INSERT INTO OrderDetails
+        INSERT INTO OrderDetails
         (OrderID, ProductID, UnitPrice)
     SELECT @OrderID, list.ProductID, (SELECT UnitPrice
         FROM Products AS P
         WHERE list.ProductID = P.ProductID)
     FROM @ProductIDs as list
 
-    END
+        END
     TRY
     BEGIN CATCH
     DECLARE @errorMsg nvarchar(1024) = N'An error occurred when adding an individual reservation: ' + ERROR_MESSAGE();
@@ -342,7 +346,6 @@ CREATE PROCEDURE AddNamedCompanyReservation
     @ReservationDate datetime,
     @StartDate datetime,
     @EndDate datetime,
-    @Accepted bit,
     @IndividualsIDs IndividualsList = NULL READONLY
 AS
 BEGIN
@@ -380,7 +383,7 @@ BEGIN
     INSERT INTO Reservations
         (ReservationID, ClientID, ReservationDate, StartDate, EndDate, Accepted, NumberOfGuests)
     VALUES
-        (@ReservationID, @ClientID, @ReservationDate, @StartDate, @EndDate, @Accepted, @NumberOfGuests)
+        (@ReservationID, @ClientID, @ReservationDate, @StartDate, @EndDate, 0, @NumberOfGuests)
 
     INSERT INTO CompanyReservations
         (ReservationID)
@@ -400,13 +403,13 @@ BEGIN
 END
 GO
 
+
 -- AddAnonymousCompanyReservation
 CREATE PROCEDURE AddNamedCompanyReservation
     @CompanyID int,
     @ReservationDate datetime,
     @StartDate datetime,
     @EndDate datetime,
-    @Accepted bit,
     @NumberOfGuests int
 AS
 BEGIN
@@ -433,7 +436,7 @@ BEGIN
     INSERT INTO Reservations
         (ReservationID, ClientID, ReservationDate, StartDate, EndDate, Accepted, NumberOfGuests)
     VALUES
-        (@ReservationID, @ClientID, @ReservationDate, @StartDate, @EndDate, @Accepted, @NumberOfGuests)
+        (@ReservationID, @ClientID, @ReservationDate, @StartDate, @EndDate, 0, @NumberOfGuests)
 
     INSERT INTO CompanyReservations
         (ReservationID)
@@ -445,6 +448,36 @@ BEGIN
         DECLARE @errorMsg nvarchar(1024) = N'An error occurred when adding an anonymous company reservation: ' + ERROR_MESSAGE();
         THROW 52000, @errorMsg, 1
     END CATCH
+END
+GO
+
+-- AcceptReservation
+CREATE PROCEDURE AcceptReservation
+    @ReservationID INT,
+    @TableIDs TablesList
+AS
+BEGIN
+    SET NOCOUNT ON
+
+    DECLARE @TableID INT = 0
+    DECLARE @NumberOfGuests INT = 0
+    WHILE (1 = 1) 
+    BEGIN
+        SELECT TOP 1
+            @TableID = TableID,
+            @NumberOfGuests = NumberOfGuests
+        FROM @TableIDs
+        WHERE TableID > @TableID
+        ORDER BY TableID
+
+        IF @@ROWCOUNT = 0 BREAK;
+
+        EXEC dbo.AddTableToReservation @ReservationID, @NumberOfGuests, @TableID
+    END
+
+    UPDATE Reservations 
+    SET Accepted = 1
+    WHERE ReservationID = @ReservationID
 END
 GO
 
@@ -671,6 +704,18 @@ BEGIN
         THROW 52000, 'Employee with given ID was not registered in the database', 1
     END
 
+    IF dbo.HasSeafood(@ProductIDs) BEGIN
+        IF @ServingDate IS NULL BEGIN;
+            THROW 52000, 'Cannot order seafood without specifying when it will be served', 1
+        END
+        IF (SELECT DATEPART(WEEKDAY, @ServingDate) - 1) BETWEEN 4 AND 6 BEGIN;
+            THROW 52000, 'Trying to order seafood for days other than Thursday, Friday, Saturday', 1
+        END
+        IF dbo.CanOrderSeafood(@OrderDate, @ServingDate) BEGIN
+        THROW 52000, 'Must order seafood before tuesday preceding serving date', 1
+    END
+    END
+
     DECLARE @OrderID INT
     SELECT @OrderID = ISNULL(MAX(OrderID), 0) + 1
     FROM Orders
@@ -688,11 +733,12 @@ BEGIN
         WHERE list.ProductID = P.ProductID)
     FROM @ProductIDs as list
 
-END TRY
+END
+    TRY
 BEGIN CATCH
     DECLARE @msg nvarchar(1024) = N'An error occurred while adding an order: ' + ERROR_MESSAGE();
     THROW 52000, @msg, 1
-END CATCH
+    END CATCH
 END
 GO
 
