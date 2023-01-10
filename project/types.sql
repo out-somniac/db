@@ -1,0 +1,2 @@
+CREATE TYPE ProductList AS TABLE (ProductID INT NOT NULL)
+CREATE TYPE IndividualList AS TABLE (IndividualID INT NOT NULL)
