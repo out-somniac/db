@@ -262,13 +262,14 @@ REFERENCES Client (ClientID);
 -- Table: Discounts
 CREATE TABLE Discounts
 (
+    DiscountID INT NOT NULL IDENTITY(1, 1),
     IndividualID int NOT NULL,
     StartDate datetime NOT NULL DEFAULT GETDATE(),
     EndDate datetime NOT NULL,
     Value int NOT NULL,
     CONSTRAINT ValidDate CHECK (EndDate > StartDate),
     CONSTRAINT ValidValue CHECK (Value > 0 AND Value <= 100),
-    CONSTRAINT Discounts_pk PRIMARY KEY  (IndividualID)
+    CONSTRAINT Discounts_pk PRIMARY KEY  (DiscountID)
 );
 ALTER TABLE Discounts ADD CONSTRAINT Discounts_Individuals
 FOREIGN KEY (IndividualID)
