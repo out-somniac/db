@@ -26,7 +26,7 @@ BEGIN
     FROM @ProductIDs as L
         INNER JOIN Products AS P ON L.ProductID = P.ProductID
         INNER JOIN Categories C on P.CategoryID = C.CategoryID
-    WHERE C.CategoryName LIKE 'Owoce morza')
+    WHERE C.CategoryName LIKE N'Owoce morza')
         RETURN 1
 
     RETURN 0
@@ -78,5 +78,8 @@ BEGIN
     FROM Individuals AS I
         INNER JOIN Discounts D on I.IndividualID = D.IndividualID
     WHERE I.IndividualID = @IndividualID AND @Date BETWEEN D.StartDate AND D.EndDate)
+    IF @result IS NULL BEGIN
+        RETURN 0
+    END
     RETURN @result
 END

@@ -89,33 +89,48 @@ CREATE PROCEDURE AddToMenu
 AS
 BEGIN
     BEGIN TRY
-        IF NOT EXISTS (SELECT *
+        IF NOT EXISTS(SELECT *
     FROM Products
-    WHERE Name = @ProductName) BEGIN;
+    WHERE Name = @ProductName)
+            BEGIN
+        ;
         THROW 52000, N'Could not a product with such a name', 1
     END
 
-    DECLARE @ProductID INT
-    SELECT @ProductID = ProductID
+        DECLARE @ProductID INT
+        SELECT @ProductID = ProductID
     FROM Products
     WHERE Name = @ProductName
 
-    DECLARE @MenuID INT
-    SELECT @MenuID = ISNULL(MAX(MenuID), 0) + 1
+        DECLARE @MenuID INT
+        SELECT @MenuID = ISNULL(MAX(MenuID), 0) + 1
     FROM Menu
 
-    IF @StartDate IS NULL BEGIN;
+        IF EXISTS(SELECT *
+    FROM Menu
+    WHERE ProductID = @ProductID AND
+        EndDate BETWEEN @StartDate AND @EndDate
+        OR StartDate BETWEEN @StartDate AND @EndDate)
+            BEGIN
+        ;
+        THROW 52000, N'This item is already registered for this time interval', 1
+    END
+
+        IF @StartDate IS NULL
+            BEGIN
+        ;
         -- Clever yet unreadable. Sets @StartDate as midnight of next day.
         SET @StartDate = (Select DATEADD(d, 0, DATEDIFF(d, 0, (SELECT DATEADD(day, 1, GETDATE())))))
     END
 
-    INSERT INTO Menu
+        INSERT INTO Menu
         (MenuID, ProductID, StartDate, EndDate)
     VALUES
         (@MenuID, @ProductID, @StartDate, @EndDate)
     END TRY
     BEGIN CATCH
-        DECLARE @msg nvarchar(1024) = N'An error occurred while adding a product to the menu: ' + ERROR_MESSAGE();
+        DECLARE @msg nvarchar(1024) = N'An error occurred
+        while adding a product to the menu: ' + ERROR_MESSAGE();
         THROW 52000, @msg, 1;
     END CATCH
 END
@@ -265,9 +280,9 @@ CREATE PROCEDURE AddIndividualReservation
     @Prepaid bit,
     @EmployeeID int,
     @OrderDate datetime,
-    @ServingDate datetime = NULL,
     @NumberOfGuests int,
-    @ProductIDs ProductList READONLY
+    @ProductIDs ProductList READONLY,
+    @ServingDate datetime = NULL
 AS
 BEGIN
     SET NOCOUNT ON
@@ -280,15 +295,15 @@ BEGIN
         THROW 52000,'Individual is not registered in database', 1
     END
 
-    IF dbo.CanMakeReservation(@IndividualID, @ProductIDs) = 1 BEGIN
+    IF dbo.CanMakeReservation(@IndividualID, @ProductIDs) = 0 BEGIN;
         THROW 52000,'This individual has not yet made enough orders to make a reservation', 1
     END
 
-        IF dbo.HasSeafood(@ProductIDs) = 1 BEGIN
+    IF dbo.HasSeafood(@ProductIDs) = 1 BEGIN
         IF @ServingDate IS NULL BEGIN;
             THROW 52000, 'Cannot order seafood without specifying when it will be served', 1
         END
-        IF (SELECT DATEPART(WEEKDAY, @ServingDate) - 1) BETWEEN 4 AND 6 BEGIN;
+        IF NOT ((SELECT DATEPART(WEEKDAY, @ServingDate) - 1) BETWEEN 4 AND 6) BEGIN;
             THROW 52000, 'Trying to order seafood for days other than Thursday, Friday, Saturday', 1
         END
         IF dbo.CanOrderSeafood(@OrderDate, @ServingDate) = 1 BEGIN;
@@ -314,21 +329,21 @@ BEGIN
     VALUES
         (@ReservationID, @ClientID, @StartDate, @EndDate, 0, @NumberOfGuests)
 
-        INSERT INTO IndividualReservations
-        (ReservationID, OrderID, Prepaid)
-    VALUES
-        (@ReservationID, @OrderID, @Prepaid)
-
-        INSERT INTO Orders
+    INSERT INTO Orders
         (OrderID, EmployeeID, OrderDate, ServingDate, ClientID)
     VALUES
         (@OrderID, @EmployeeID, @OrderDate, @ServingDate, @ClientID)
 
-    DECLARE @Discount AS DECIMAL(10, 2) = (100 - dbo.GetCurrentDiscount(@IndividualID, @OrderDate)) / 100
-        INSERT INTO OrderDetails
-        (OrderID, ProductID, UnitPrice)
+    INSERT INTO IndividualReservations
+        (ReservationID, OrderID, Prepaid)
+    VALUES
+        (@ReservationID, @OrderID, @Prepaid)
 
-    SELECT @OrderID, list.ProductID, (SELECT UnitPrice * @Discount
+    DECLARE @Discount AS DECIMAL(10, 2) = (100 - dbo.GetCurrentDiscount(@IndividualID, @OrderDate)) / 100
+        
+    INSERT INTO OrderDetails
+        (OrderID, ProductID, UnitPrice)
+    SELECT @OrderID, list.ProductID, (SELECT P.UnitPrice * @Discount
         FROM Products AS P
         WHERE list.ProductID = P.ProductID)
     FROM @ProductIDs as list
@@ -710,12 +725,12 @@ BEGIN
         IF @ServingDate IS NULL BEGIN;
             THROW 52000, 'Cannot order seafood without specifying when it will be served', 1
         END
-        IF (SELECT DATEPART(WEEKDAY, @ServingDate) - 1) BETWEEN 4 AND 6 BEGIN;
+        IF NOT ((SELECT DATEPART(WEEKDAY, @ServingDate) - 1) BETWEEN 4 AND 6) BEGIN;
             THROW 52000, 'Trying to order seafood for days other than Thursday, Friday, Saturday', 1
         END
-        IF dbo.CanOrderSeafood(@OrderDate, @ServingDate) = 1 BEGIN
-        THROW 52000, 'Must order seafood before tuesday preceding serving date', 1
-    END
+        IF dbo.CanOrderSeafood(@OrderDate, @ServingDate) = 1 BEGIN;
+            THROW 52000, 'Must order seafood before tuesday preceding serving date', 1
+        END
     END
 
     DECLARE @OrderID INT
@@ -727,10 +742,20 @@ BEGIN
     VALUES
         (@OrderID, @EmployeeID, @OrderDate, @ServingDate, @ClientID)
 
-    -- TODO: Same as in IndividualReservations - does not account for discounts
+    DECLARE @Discount AS DECIMAL(10, 2) = 1
+    IF EXISTS(SELECT *
+    FROM Individuals
+    WHERE ClientID = @ClientID) BEGIN
+        DECLARE @IndividualID INT
+        SELECT @IndividualID = IndividualID
+        FROM Individuals
+        WHERE ClientID = @ClientID
+        SET @Discount = (100 - dbo.GetCurrentDiscount(@IndividualID, @OrderDate)) / 100
+    END
+
     INSERT INTO OrderDetails
         (OrderID, ProductID, UnitPrice)
-    SELECT @OrderID, list.ProductID, (SELECT UnitPrice
+    SELECT @OrderID, list.ProductID, (SELECT UnitPrice * @Discount
         FROM Products AS P
         WHERE list.ProductID = P.ProductID)
     FROM @ProductIDs as list
