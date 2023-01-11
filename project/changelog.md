@@ -1,3 +1,0 @@
- - Removed GETDATE() DEFAULT in menu. Since the new item should be added at midnight next day. This is done in menus respective procedure.
- - Added a OrderID Field in IndividualReservations.
- - Moved number of reservations from CompanyReservations to Reservations
