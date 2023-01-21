@@ -21,6 +21,8 @@ CREATE ROLE CompanyCustomer
 GRANT Customer TO CompanyCustomer
 GRANT SELECT ON CompanyReservationsHistory TO CompanyCustomer
 GRANT EXECUTE ON AddOrder TO CompanyCustomer
+GRANT EXECUTE ON AddNamedCompanyReservation TO Employee
+GRANT EXECUTE ON AddAnonymousCompanyReservation TO Employee
 GRANT EXECUTE ON MakeTakeaway TO CompanyCustomer
 
 CREATE ROLE Employee
@@ -59,10 +61,10 @@ GRANT SELECT ON TableReservationDetails TO Manager
 GRANT SELECT ON MonthlyCompanyOrders TO Manager
 GRANT SELECT ON AverageServiceTime TO Manager
 GRANT SELECT ON AverageProductServingTime TO Manager
-GRANT SELECT ON AddToMenu TO Manager
-GRANT SELECT ON AcceptReservation TO Manager
-GRANT SELECT ON AddEmployee TO Manager
-GRANT SELECT ON MakeManager TO Manager
-GRANT SELECT ON AddTable To Manager
-GRANT SELECT ON AddTableToReservation To Manager
-GRANT SELECT ON ChangeParameter To Manager
+GRANT EXECUTE ON AddToMenu TO Manager
+GRANT EXECUTE ON AcceptReservation TO Manager
+GRANT EXECUTE ON AddEmployee TO Manager
+GRANT EXECUTE ON MakeManager TO Manager
+GRANT EXECUTE ON AddTable To Manager
+GRANT EXECUTE ON AddTableToReservation To Manager
+GRANT EXECUTE ON ChangeParameter To Manager
